@@ -591,7 +591,7 @@ const firebaseConfig = {
 const ACCESS_CODES = {
   "Agropolis85": "Agropolis",
   "Etablieres44":"Maintenance",
-  "SG85000":     "Services Généraux"
+  "SG85000":     "Service Généraux"
 };
 // ============================================================
 
@@ -610,7 +610,7 @@ let currentService = localStorage.getItem('etablieres-access-service') || '';
 function grantAccess(){
   accessGate.style.display = 'none';
   appRoot.style.display = 'block';
-  if(currentService === 'Services Généraux'){
+  if(currentService === 'Service Généraux'){
     document.getElementById('seasonalToggleBtn').style.display = 'inline-block';
   }
 }
@@ -2092,9 +2092,10 @@ function checkAccessCode(){
       historyList.innerHTML='<div class="history-empty">Aucun mouvement enregistré pour l’instant.</div>';
       return;
     }
-    historyList.innerHTML = history.map(h=>
-      `<div class="history-item"><span class="t">${h.t}</span>${h.who?`<span style="color:var(--transfert); font-weight:700;">[${h.who}]</span>`:''}<span>${h.text}</span></div>`
-    ).join('');
+    historyList.innerHTML = history.map(h=>{
+      const who = h.who === 'Services Généraux' ? 'Service Généraux' : h.who; // corrige aussi les anciennes entrées
+      return `<div class="history-item"><span class="t">${h.t}</span>${who?`<span style="color:var(--transfert); font-weight:700;">[${who}]</span>`:''}<span>${h.text}</span></div>`;
+    }).join('');
   }
 
   function computeStats(){
@@ -2424,7 +2425,7 @@ function checkAccessCode(){
     e.target.value = '';
   });
 
-  // ===== Module "Planning saisonnier" (Services Généraux uniquement) =====
+  // ===== Module "Planning saisonnier" (Service Généraux uniquement) =====
   // Stocké dans un document Firestore séparé, jamais consigné dans le
   // journal des mouvements — cette section n'appelle jamais logHistory().
   const SEASON_START = '2026-08-03';
@@ -2500,7 +2501,15 @@ function checkAccessCode(){
       </div>`;
     }).join('');
 
+    function autoGrow(ta){
+      ta.style.height = 'auto';
+      ta.style.height = Math.max(46, ta.scrollHeight) + 'px';
+    }
+
     container.querySelectorAll('textarea').forEach(ta=>{
+      ta.style.overflow = 'hidden';
+      autoGrow(ta); // calibre la hauteur selon le contenu dès l'affichage
+      ta.addEventListener('input', ()=> autoGrow(ta)); // s'agrandit en direct pendant la saisie
       ta.addEventListener('change', ()=>{
         const iso = ta.dataset.date, slot = ta.dataset.slot;
         if(!seasonalEntries[iso]) seasonalEntries[iso] = {matin:'', soir:''};
@@ -2578,7 +2587,7 @@ function checkAccessCode(){
 <body>
   <div class="top-bar">
     <div>
-      <div class="eyebrow">Groupe Établières — Services Généraux</div>
+      <div class="eyebrow">Groupe Établières — Service Généraux</div>
       <h1>Planning saisonnier</h1>
     </div>
     <div class="week-range">Semaine<b>${formatWeekLabel(week).replace('Semaine du ','du ')}</b></div>
