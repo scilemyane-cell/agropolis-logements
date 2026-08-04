@@ -215,24 +215,51 @@
   .week-grid .cell.out-of-range{
     background:repeating-linear-gradient(135deg, #f4f3ee, #f4f3ee 6px, #ececE4 6px, #ececE4 12px);
   }
-  .week-grid textarea{
+  .week-grid .cell-edit{
     width:100%;
     min-height:46px;
-    resize:vertical;
     border:1px solid #d8d2c0;
     border-radius:2px;
     font-family:var(--mono);
     font-size:11.5px;
+    line-height:1.5;
     padding:5px 6px;
     box-sizing:border-box;
     background:#fff;
-    transition:border-color .12s ease, box-shadow .12s ease;
-  }
-  .week-grid textarea:focus{
+    transition:border-color .12s ease, box-shadow .12s ease, background-color .12s ease;
     outline:none;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .week-grid .cell-edit:focus{
     border-color:var(--transfert);
     box-shadow:0 0 0 2px rgba(59,125,216,.15);
   }
+  .week-grid .cell-edit.is-repos{
+    background:#e4e6e9;
+    color:#6b7480;
+  }
+  .week-grid .cell-edit[contenteditable="false"]{
+    background:#f4f3ee;
+    cursor:default;
+  }
+  .format-toolbar{
+    display:flex; gap:6px; align-items:center;
+    margin-bottom:12px;
+    font-family:var(--mono); font-size:11px;
+  }
+  .format-toolbar button{
+    border:1.5px solid var(--ink);
+    background:#fff;
+    padding:5px 12px;
+    cursor:pointer;
+    border-radius:2px;
+  }
+  .format-toolbar button:hover{background:#f0ede3;}
+  .format-toolbar .fmt-bold{font-weight:700;}
+  .format-toolbar .fmt-red{color:#c4402f; font-weight:700;}
+  .format-toolbar .fmt-clear{color:#5c6b7a;}
+  .format-toolbar .hint{color:#8a97a6; margin-left:4px;}
   .filter-row{
     display:flex; align-items:center; gap:8px;
     padding:5px 4px;
@@ -520,6 +547,12 @@
     <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Jeudi</b> — 8h-12h · 13h-17h <span style="color:#8a97a6;">(8h)</span></div>
     <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Vendredi</b> — 8h-12h · 13h-16h <span style="color:#8a97a6;">(7h)</span></div>
     <div style="background:var(--transfert); color:#fff; padding:6px 12px; border-radius:3px; font-weight:700;">Total : 35h / semaine</div>
+  </div>
+  <div class="format-toolbar" id="seasonalFormatToolbar">
+    <button class="fmt-bold" id="fmtBoldBtn" type="button">B Gras</button>
+    <button class="fmt-red" id="fmtRedBtn" type="button">● Rouge</button>
+    <button class="fmt-clear" id="fmtClearBtn" type="button">Effacer le style</button>
+    <span class="hint">Sélectionnez du texte dans une case, puis cliquez ici · une case contenant "repos" passe automatiquement en gris</span>
   </div>
   <div id="seasonalWeeksContainer" style="display:flex; flex-direction:column; gap:14px;"></div>
 </div>
@@ -2488,20 +2521,27 @@ function checkAccessCode(){
 
   let lastRenderedWeeks = [];
 
+  function isRepos(text){
+    return /\brepos\b/i.test((text||'').trim());
+  }
+
   function renderSeasonalPlanning(){
     const container = document.getElementById('seasonalWeeksContainer');
     const weeks = buildSeasonWeeks(SEASON_START, SEASON_END);
     lastRenderedWeeks = weeks;
+    const isReadOnly = currentService !== 'Service Généraux';
+    document.getElementById('seasonalFormatToolbar').style.display = isReadOnly ? 'none' : 'flex';
+
     container.innerHTML = weeks.map((week, wIdx)=>{
       const dayHeads = week.days.map(day=>
         `<div class="cell day-head${day.inRange?'':' out-of-range'}">${formatDayLabel(day.date)}</div>`
       ).join('');
-      const isReadOnly = currentService !== 'Service Généraux';
       const buildRow = (slot)=> week.days.map(day=>{
         if(!day.inRange) return `<div class="cell out-of-range"></div>`;
         const iso = isoDate(day.date);
         const v = (seasonalEntries[iso]||{})[slot] || '';
-        return `<div class="cell"><textarea data-date="${iso}" data-slot="${slot}"${isReadOnly?' readonly style="background:#f4f3ee; cursor:default;"':''}>${v}</textarea></div>`;
+        const reposClass = isRepos(v.replace(/<[^>]*>/g,'')) ? ' is-repos' : '';
+        return `<div class="cell"><div class="cell-edit${reposClass}" data-date="${iso}" data-slot="${slot}" contenteditable="${isReadOnly?'false':'true'}">${v}</div></div>`;
       }).join('');
       return `<div class="week-card">
         <div class="week-label" style="display:flex; align-items:center; justify-content:space-between;">
@@ -2516,20 +2556,15 @@ function checkAccessCode(){
       </div>`;
     }).join('');
 
-    function autoGrow(ta){
-      ta.style.height = 'auto';
-      ta.style.height = Math.max(46, ta.scrollHeight) + 'px';
-    }
-
-    container.querySelectorAll('textarea').forEach(ta=>{
-      ta.style.overflow = 'hidden';
-      autoGrow(ta); // calibre la hauteur selon le contenu dès l'affichage
-      if(ta.readOnly) return; // Agropolis : lecture seule, pas de sauvegarde
-      ta.addEventListener('input', ()=> autoGrow(ta)); // s'agrandit en direct pendant la saisie
-      ta.addEventListener('change', ()=>{
-        const iso = ta.dataset.date, slot = ta.dataset.slot;
+    container.querySelectorAll('.cell-edit').forEach(el=>{
+      if(isReadOnly) return; // Agropolis : lecture seule, pas de sauvegarde
+      el.addEventListener('input', ()=>{
+        el.classList.toggle('is-repos', isRepos(el.innerText));
+      });
+      el.addEventListener('blur', ()=>{
+        const iso = el.dataset.date, slot = el.dataset.slot;
         if(!seasonalEntries[iso]) seasonalEntries[iso] = {matin:'', soir:''};
-        seasonalEntries[iso][slot] = ta.value;
+        seasonalEntries[iso][slot] = el.innerHTML;
         persistSeasonalPlanning(); // volontairement séparé de logHistory()
       });
     });
@@ -2538,6 +2573,22 @@ function checkAccessCode(){
       btn.onclick = ()=> printSeasonalWeek(lastRenderedWeeks[parseInt(btn.dataset.weekIdx,10)]);
     });
   }
+
+  function applyFormat(command, value){
+    const active = document.activeElement;
+    if(!active || !active.classList || !active.classList.contains('cell-edit')) return;
+    document.execCommand(command, false, value || null);
+    active.dispatchEvent(new Event('input'));
+  }
+  document.getElementById('fmtBoldBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('fmtBoldBtn').addEventListener('click', ()=> applyFormat('bold'));
+  document.getElementById('fmtRedBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('fmtRedBtn').addEventListener('click', ()=> applyFormat('foreColor', '#c4402f'));
+  document.getElementById('fmtClearBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('fmtClearBtn').addEventListener('click', ()=>{
+    applyFormat('removeFormat');
+    applyFormat('foreColor', '#1c2b3a');
+  });
 
   function printSeasonalWeek(week){
     if(!week) return;
@@ -2553,13 +2604,13 @@ function checkAccessCode(){
           <div class="day-name">${fullNames[day.date.getDay()]}</div>
           <div class="day-date">${String(day.date.getDate()).padStart(2,'0')}/${String(day.date.getMonth()+1).padStart(2,'0')}</div>
         </div>
-        <div class="slot">
+        <div class="slot${isRepos(matin.replace(/<[^>]*>/g,''))?' is-repos':''}">
           <div class="slot-tag">☀ Matin</div>
-          <div class="slot-text">${matin ? matin.replace(/\n/g,'<br>') : '<span class="empty">—</span>'}</div>
+          <div class="slot-text">${matin || '<span class="empty">—</span>'}</div>
         </div>
-        <div class="slot slot-soir">
+        <div class="slot slot-soir${isRepos(soir.replace(/<[^>]*>/g,''))?' is-repos':''}">
           <div class="slot-tag">🌤️ Après-midi</div>
-          <div class="slot-text">${soir ? soir.replace(/\n/g,'<br>') : '<span class="empty">—</span>'}</div>
+          <div class="slot-text">${soir || '<span class="empty">—</span>'}</div>
         </div>
       </div>`;
     }).join('');
@@ -2588,6 +2639,7 @@ function checkAccessCode(){
   .day-date{font-size:11px; color:#8a97a6; margin-top:2px;}
   .slot{padding:12px 10px; min-height:110px; border-bottom:1px dashed #d8d2c0;}
   .slot-soir{border-bottom:none; background:#fbfaf5;}
+  .slot.is-repos{background:#e4e6e9 !important; color:#6b7480;}
   .slot-tag{font-size:10.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.04em; color:#3b7dd8; margin-bottom:6px;}
   .slot-text{font-size:12.5px; line-height:1.5; color:#1c2b3a; white-space:pre-wrap;}
   .empty{color:#c3cad2;}
