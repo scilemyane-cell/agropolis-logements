@@ -2094,10 +2094,17 @@ function checkAccessCode(){
     }
   });
 
+  function compareRoomNumbers(a,b){
+    const na = parseInt(a.number,10), nb = parseInt(b.number,10);
+    if(!isNaN(na) && !isNaN(nb) && na!==nb) return na-nb;
+    return a.number.localeCompare(b.number, undefined, {numeric:true});
+  }
+
   function renderFloors(){
     floorsEl.innerHTML='';
     const b = data[currentBldg];
     b.floors.forEach((floor, fIdx)=>{
+      floor.rooms.sort(compareRoomNumbers); // toujours dans l'ordre croissant, même après un déplacement
       const section = document.createElement('div');
       section.className='floor';
 
