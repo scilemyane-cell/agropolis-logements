@@ -163,6 +163,76 @@
   .cat-row button:hover{border-color:var(--navy); color:var(--navy);}
   .cat-row button.del:hover{border-color:var(--hs); color:var(--hs);}
   .cat-empty{padding:12px; font-family:var(--mono); font-size:11.5px; color:#a3adb8;}
+  .week-card{
+    border:1.5px solid var(--paper-line);
+    background:#fffdf8;
+    border-radius:3px;
+    overflow:hidden;
+    box-shadow:0 2px 6px rgba(22,39,59,.08);
+    border-left:4px solid var(--transfert);
+  }
+  .week-card .week-label{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.03em;
+    color:var(--paper);
+    background:var(--navy);
+    padding:8px 12px;
+  }
+  .week-grid{
+    display:grid;
+    grid-template-columns:80px repeat(5, 1fr);
+  }
+  .week-grid .cell{
+    border-right:1px solid var(--paper-line);
+    border-bottom:1px solid var(--paper-line);
+    padding:7px;
+  }
+  .week-grid .cell:nth-child(6n){border-right:none;}
+  .week-grid .day-head{
+    font-family:var(--mono);
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--navy);
+    text-align:center;
+    background:#eef1e7;
+  }
+  .week-grid .day-head.out-of-range{
+    color:#b7bfc7;
+    background:#f4f3ee;
+  }
+  .week-grid .slot-head{
+    font-family:var(--mono);
+    font-size:10.5px;
+    font-weight:700;
+    color:#5c6b7a;
+    display:flex; align-items:center;
+    background:#f4f1e8;
+  }
+  .week-grid .cell.out-of-range{
+    background:repeating-linear-gradient(135deg, #f4f3ee, #f4f3ee 6px, #ececE4 6px, #ececE4 12px);
+  }
+  .week-grid textarea{
+    width:100%;
+    min-height:46px;
+    resize:vertical;
+    border:1px solid #d8d2c0;
+    border-radius:2px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    padding:5px 6px;
+    box-sizing:border-box;
+    background:#fff;
+    transition:border-color .12s ease, box-shadow .12s ease;
+  }
+  .week-grid textarea:focus{
+    outline:none;
+    border-color:var(--transfert);
+    box-shadow:0 0 0 2px rgba(59,125,216,.15);
+  }
   .filter-row{
     display:flex; align-items:center; gap:8px;
     padding:5px 4px;
@@ -430,9 +500,19 @@
   <input type="file" id="importFileInput" accept="application/json" style="display:none;">
   <span id="saveStatus" style="font-family:var(--mono); font-size:11px; color:#7f93a8; margin-left:10px;"></span>
   <button class="legend-add-btn" id="logoutBtn" style="border-color:#c4402f; color:#e8b0a6;">⎋ Se déconnecter</button>
+  <button class="legend-add-btn" id="seasonalToggleBtn" style="display:none; border-color:#3b7dd8; color:#9db9e0;">📋 Planning saisonnier</button>
 </div>
 
 <div class="legend" id="legendBar"></div>
+
+<div id="seasonalPlanningSection" style="display:none; padding:22px 32px; border-bottom:3px solid var(--navy); background:#fbfaf5;">
+  <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:14px;">
+    <h2 style="font-family:var(--mono); font-size:15px; letter-spacing:.1em; text-transform:uppercase; color:var(--navy); margin:0;">Planning saisonnier — Renfort été</h2>
+    <span style="font-family:var(--mono); font-size:11.5px; color:#8a97a6;">03/08/2026 → 30/09/2026 · interventions par semaine, matin / soir, lundi à vendredi</span>
+    <span id="seasonalSaveStatus" style="font-family:var(--mono); font-size:11px; color:#7f93a8; margin-left:auto;"></span>
+  </div>
+  <div id="seasonalWeeksContainer" style="display:flex; flex-direction:column; gap:14px;"></div>
+</div>
 
 <div class="panel-overlay" id="categoryOverlay">
   <div class="panel" style="width:360px;">
@@ -518,6 +598,7 @@ const ACCESS_CODES = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const stateDocRef = doc(db, 'logements_internat', 'etat');
+const seasonalDocRef = doc(db, 'logements_internat', 'planning_saisonnier');
 
 // --- Porte d'accès par code partagé ---
 const accessGate = document.getElementById('accessGate');
@@ -529,6 +610,9 @@ let currentService = localStorage.getItem('etablieres-access-service') || '';
 function grantAccess(){
   accessGate.style.display = 'none';
   appRoot.style.display = 'block';
+  if(currentService === 'Services Généraux'){
+    document.getElementById('seasonalToggleBtn').style.display = 'inline-block';
+  }
 }
 
 function logout(){
@@ -537,6 +621,8 @@ function logout(){
   currentService = '';
   accessCodeInput.value = '';
   accessError.textContent = '';
+  document.getElementById('seasonalToggleBtn').style.display = 'none';
+  document.getElementById('seasonalPlanningSection').style.display = 'none';
   appRoot.style.display = 'none';
   accessGate.style.display = 'flex';
   accessCodeInput.focus();
@@ -2337,6 +2423,117 @@ function checkAccessCode(){
     if(file) importStateFromFile(file);
     e.target.value = '';
   });
+
+  // ===== Module "Planning saisonnier" (Services Généraux uniquement) =====
+  // Stocké dans un document Firestore séparé, jamais consigné dans le
+  // journal des mouvements — cette section n'appelle jamais logHistory().
+  const SEASON_START = '2026-08-03';
+  const SEASON_END = '2026-09-30';
+  let seasonalEntries = {};
+
+  function isoDate(d){ return d.toISOString().slice(0,10); }
+
+  function getMonday(d){
+    const nd = new Date(d);
+    nd.setDate(d.getDate() - (d.getDay()===0 ? 6 : d.getDay()-1));
+    nd.setHours(0,0,0,0);
+    return nd;
+  }
+
+  function buildSeasonWeeks(startStr, endStr){
+    const seasonStart = new Date(startStr+'T00:00:00');
+    const seasonEnd = new Date(endStr+'T00:00:00');
+    let monday = getMonday(seasonStart);
+    const lastMonday = getMonday(seasonEnd);
+    const weeks = [];
+    while(monday <= lastMonday){
+      const days = [];
+      for(let i=0;i<5;i++){
+        const d = new Date(monday);
+        d.setDate(monday.getDate()+i);
+        days.push({date:d, inRange: d>=seasonStart && d<=seasonEnd});
+      }
+      weeks.push({days});
+      monday = new Date(monday);
+      monday.setDate(monday.getDate()+7);
+    }
+    return weeks;
+  }
+
+  function formatDayLabel(d){
+    const names = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+    return `${names[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+
+  function formatWeekLabel(week){
+    const first = week.days[0].date, last = week.days[week.days.length-1].date;
+    const mm = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    return `Semaine du ${first.getDate()} au ${last.getDate()} ${mm[last.getMonth()]} ${last.getFullYear()}`;
+  }
+
+  function renderSeasonalPlanning(){
+    const container = document.getElementById('seasonalWeeksContainer');
+    const weeks = buildSeasonWeeks(SEASON_START, SEASON_END);
+    container.innerHTML = weeks.map(week=>{
+      const dayHeads = week.days.map(day=>
+        `<div class="cell day-head${day.inRange?'':' out-of-range'}">${formatDayLabel(day.date)}</div>`
+      ).join('');
+      const buildRow = (slot)=> week.days.map(day=>{
+        if(!day.inRange) return `<div class="cell out-of-range"></div>`;
+        const iso = isoDate(day.date);
+        const v = (seasonalEntries[iso]||{})[slot] || '';
+        return `<div class="cell"><textarea data-date="${iso}" data-slot="${slot}">${v}</textarea></div>`;
+      }).join('');
+      return `<div class="week-card">
+        <div class="week-label">${formatWeekLabel(week)}</div>
+        <div class="week-grid">
+          <div class="cell slot-head"></div>${dayHeads}
+          <div class="cell slot-head">Matin</div>${buildRow('matin')}
+          <div class="cell slot-head">Soir</div>${buildRow('soir')}
+        </div>
+      </div>`;
+    }).join('');
+
+    container.querySelectorAll('textarea').forEach(ta=>{
+      ta.addEventListener('change', ()=>{
+        const iso = ta.dataset.date, slot = ta.dataset.slot;
+        if(!seasonalEntries[iso]) seasonalEntries[iso] = {matin:'', soir:''};
+        seasonalEntries[iso][slot] = ta.value;
+        persistSeasonalPlanning(); // volontairement séparé de logHistory()
+      });
+    });
+  }
+
+  async function persistSeasonalPlanning(){
+    const statusEl = document.getElementById('seasonalSaveStatus');
+    statusEl.textContent = 'Enregistrement…';
+    try{
+      await setDoc(seasonalDocRef, {json: JSON.stringify(seasonalEntries), updatedAt: Date.now()});
+      statusEl.textContent = 'Enregistré ✓';
+    }catch(err){
+      console.error('Erreur planning saisonnier :', err);
+      statusEl.textContent = 'Échec de l’enregistrement';
+    }
+  }
+
+  function startSeasonalSync(){
+    onSnapshot(seasonalDocRef, (snap)=>{
+      if(snap.exists() && snap.data() && snap.data().json){
+        try{ seasonalEntries = JSON.parse(snap.data().json); }catch(e){ seasonalEntries = {}; }
+      }
+      renderSeasonalPlanning();
+    }, (err)=>{
+      console.error('Erreur de connexion planning saisonnier :', err);
+    });
+  }
+
+  document.getElementById('seasonalToggleBtn').onclick = ()=>{
+    const sec = document.getElementById('seasonalPlanningSection');
+    sec.style.display = sec.style.display==='none' ? 'block' : 'none';
+  };
+
+  startSeasonalSync();
+  // ===== Fin module "Planning saisonnier" =====
 
   render();
   renderHistory();
