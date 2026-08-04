@@ -505,6 +505,33 @@
   }
   .history-item .t{color:#a3adb8; flex-shrink:0;}
   .history-empty{padding:16px; color:#a3adb8;}
+
+  @media (max-width: 760px){
+    #stickyBar{ position:static; }
+    #stickyBarSpacer{ display:none !important; }
+    .format-toolbar{ position:static; }
+
+    header{ padding:10px 14px 8px; }
+    h1{ font-size:17px; }
+    .eyebrow{ font-size:9px; }
+    .subtitle{ font-size:10px; }
+
+    .toolbar{ padding:10px 14px; gap:6px; }
+    .bldg-tab{ padding:6px 10px; font-size:12px; }
+    .search{ width:110px; font-size:12px; padding:6px 8px; }
+    .stats{ gap:8px; font-size:10.5px; }
+    .legend-add-btn{ font-size:9.5px; padding:4px 8px; }
+    #saveStatus{ display:none; }
+
+    .legend{ padding:8px 14px; gap:10px; font-size:10.5px; }
+
+    main{ padding:14px 14px 40px; }
+    .room-grid{ grid-template-columns:repeat(auto-fill, minmax(62px,1fr)); }
+
+    .week-card{ overflow-x:auto; }
+    .week-grid{ grid-template-columns:60px repeat(5, minmax(90px,1fr)); }
+    .days-row{ overflow-x:auto; }
+  }
 </style>
 </head>
 <body>
