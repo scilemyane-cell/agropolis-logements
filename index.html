@@ -120,6 +120,12 @@
   .dot.hs{background:var(--hs);}
   .dot.podeliha{background:var(--podeliha);}
 
+  #stickyBar{
+    position:sticky;
+    top:0;
+    z-index:80;
+  }
+
   .legend{
     display:flex; gap:18px; flex-wrap:wrap;
     padding:12px 32px;
@@ -127,6 +133,7 @@
     font-size:12px;
     color:#5c6b7a;
     border-bottom:1px solid var(--paper-line);
+    background:var(--paper);
   }
   .legend .stat{color:#5c6b7a;}
   .legend-add-btn{
@@ -512,6 +519,7 @@
   <div class="subtitle">Vidage &amp; transfert — Bâtiments A / B</div>
 </header>
 
+<div id="stickyBar">
 <div class="toolbar">
   <div class="bldg-tabs" id="bldgTabs"></div>
   <input class="search" id="searchBox" type="text" placeholder="N° chambre…">
@@ -531,6 +539,7 @@
 </div>
 
 <div class="legend" id="legendBar"></div>
+</div>
 
 <div id="seasonalPlanningSection" style="display:none; padding:22px 32px; border-bottom:3px solid var(--navy); background:#fbfaf5;">
   <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:14px;">
