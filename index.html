@@ -606,6 +606,7 @@ const appRoot = document.getElementById('appRoot');
 const accessCodeInput = document.getElementById('accessCodeInput');
 const accessError = document.getElementById('accessError');
 let currentService = localStorage.getItem('etablieres-access-service') || '';
+let applyServiceDefaultFilter = null; // rempli par l'IIFE principale plus bas
 
 function grantAccess(){
   accessGate.style.display = 'none';
@@ -642,6 +643,7 @@ function checkAccessCode(){
     localStorage.setItem('etablieres-access-ok','1');
     localStorage.setItem('etablieres-access-service', currentService);
     grantAccess();
+    if(applyServiceDefaultFilter) applyServiceDefaultFilter();
   } else {
     accessError.textContent = 'Code incorrect.';
   }
@@ -2496,7 +2498,7 @@ function checkAccessCode(){
         <div class="week-grid">
           <div class="cell slot-head"></div>${dayHeads}
           <div class="cell slot-head">Matin</div>${buildRow('matin')}
-          <div class="cell slot-head">Soir</div>${buildRow('soir')}
+          <div class="cell slot-head">Après-midi</div>${buildRow('soir')}
         </div>
       </div>`;
     }).join('');
@@ -2542,7 +2544,7 @@ function checkAccessCode(){
           <div class="slot-text">${matin ? matin.replace(/\n/g,'<br>') : '<span class="empty">—</span>'}</div>
         </div>
         <div class="slot slot-soir">
-          <div class="slot-tag">🌙 Soir</div>
+          <div class="slot-tag">🌤️ Après-midi</div>
           <div class="slot-text">${soir ? soir.replace(/\n/g,'<br>') : '<span class="empty">—</span>'}</div>
         </div>
       </div>`;
@@ -2650,6 +2652,17 @@ function checkAccessCode(){
   render();
   renderHistory();
   startRealtimeSync();
+
+  applyServiceDefaultFilter = function(){
+    if(currentService === 'Service Généraux'){
+      activeFilters = new Set(['dispo','vide-de-mobilier','stockage-mobilier']);
+      updateFilterCount();
+      renderFloors();
+    }
+  };
+  if(localStorage.getItem('etablieres-access-ok') === '1'){
+    applyServiceDefaultFilter(); // ouverture directe déjà connecté (code mémorisé sur l'appareil)
+  }
 })();
 </script>
 
