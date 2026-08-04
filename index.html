@@ -508,8 +508,18 @@
 <div id="seasonalPlanningSection" style="display:none; padding:22px 32px; border-bottom:3px solid var(--navy); background:#fbfaf5;">
   <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:14px;">
     <h2 style="font-family:var(--mono); font-size:15px; letter-spacing:.1em; text-transform:uppercase; color:var(--navy); margin:0;">Planning saisonnier — Renfort été</h2>
-    <span style="font-family:var(--mono); font-size:11.5px; color:#8a97a6;">03/08/2026 → 30/09/2026 · interventions par semaine, matin / soir, lundi à vendredi</span>
+    <span style="font-family:var(--mono); font-size:11.5px; color:#8a97a6;">03/08/2026 → 30/09/2026 · interventions par semaine, matin / après-midi, lundi à vendredi</span>
     <span id="seasonalSaveStatus" style="font-family:var(--mono); font-size:11px; color:#7f93a8; margin-left:auto;"></span>
+  </div>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; font-family:var(--mono); font-size:11.5px;">
+    <div style="background:var(--navy); color:#fff; padding:6px 12px; border-radius:3px; font-weight:700; letter-spacing:.04em;">Horaires du saisonnier</div>
+    <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Lundi</b> — 8h-12h · 13h-17h <span style="color:#8a97a6;">(8h)</span></div>
+    <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Mardi</b> — 8h-12h · 13h-17h <span style="color:#8a97a6;">(8h)</span></div>
+    <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Mercredi</b> — 8h-12h <span style="color:#8a97a6;">(4h)</span></div>
+    <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Jeudi</b> — 8h-12h · 13h-17h <span style="color:#8a97a6;">(8h)</span></div>
+    <div style="background:#fff; border:1.5px solid var(--paper-line); padding:6px 12px; border-radius:3px; color:var(--navy);"><b>Vendredi</b> — 8h-12h · 13h-16h <span style="color:#8a97a6;">(7h)</span></div>
+    <div style="background:var(--transfert); color:#fff; padding:6px 12px; border-radius:3px; font-weight:700;">Total : 35h / semaine</div>
   </div>
   <div id="seasonalWeeksContainer" style="display:flex; flex-direction:column; gap:14px;"></div>
 </div>
@@ -611,8 +621,10 @@ let applyServiceDefaultFilter = null; // rempli par l'IIFE principale plus bas
 function grantAccess(){
   accessGate.style.display = 'none';
   appRoot.style.display = 'block';
-  if(currentService === 'Service Généraux'){
-    document.getElementById('seasonalToggleBtn').style.display = 'inline-block';
+  if(currentService === 'Service Généraux' || currentService === 'Agropolis'){
+    const btn = document.getElementById('seasonalToggleBtn');
+    btn.style.display = 'inline-block';
+    btn.textContent = currentService === 'Agropolis' ? '📋 Planning saisonnier (lecture seule)' : '📋 Planning saisonnier';
   }
 }
 
@@ -2484,11 +2496,12 @@ function checkAccessCode(){
       const dayHeads = week.days.map(day=>
         `<div class="cell day-head${day.inRange?'':' out-of-range'}">${formatDayLabel(day.date)}</div>`
       ).join('');
+      const isReadOnly = currentService !== 'Service Généraux';
       const buildRow = (slot)=> week.days.map(day=>{
         if(!day.inRange) return `<div class="cell out-of-range"></div>`;
         const iso = isoDate(day.date);
         const v = (seasonalEntries[iso]||{})[slot] || '';
-        return `<div class="cell"><textarea data-date="${iso}" data-slot="${slot}">${v}</textarea></div>`;
+        return `<div class="cell"><textarea data-date="${iso}" data-slot="${slot}"${isReadOnly?' readonly style="background:#f4f3ee; cursor:default;"':''}>${v}</textarea></div>`;
       }).join('');
       return `<div class="week-card">
         <div class="week-label" style="display:flex; align-items:center; justify-content:space-between;">
@@ -2511,6 +2524,7 @@ function checkAccessCode(){
     container.querySelectorAll('textarea').forEach(ta=>{
       ta.style.overflow = 'hidden';
       autoGrow(ta); // calibre la hauteur selon le contenu dès l'affichage
+      if(ta.readOnly) return; // Agropolis : lecture seule, pas de sauvegarde
       ta.addEventListener('input', ()=> autoGrow(ta)); // s'agrandit en direct pendant la saisie
       ta.addEventListener('change', ()=>{
         const iso = ta.dataset.date, slot = ta.dataset.slot;
