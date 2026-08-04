@@ -2504,15 +2504,19 @@ function checkAccessCode(){
     });
   }
 
+  let skipNextSeasonalRender = false;
+
   async function persistSeasonalPlanning(){
     const statusEl = document.getElementById('seasonalSaveStatus');
     statusEl.textContent = 'Enregistrement…';
     try{
+      skipNextSeasonalRender = true; // évite de reconstruire la grille (et perdre la taille redimensionnée) pour notre propre saisie
       await setDoc(seasonalDocRef, {json: JSON.stringify(seasonalEntries), updatedAt: Date.now()});
       statusEl.textContent = 'Enregistré ✓';
     }catch(err){
       console.error('Erreur planning saisonnier :', err);
       statusEl.textContent = 'Échec de l’enregistrement';
+      skipNextSeasonalRender = false;
     }
   }
 
@@ -2520,6 +2524,10 @@ function checkAccessCode(){
     onSnapshot(seasonalDocRef, (snap)=>{
       if(snap.exists() && snap.data() && snap.data().json){
         try{ seasonalEntries = JSON.parse(snap.data().json); }catch(e){ seasonalEntries = {}; }
+      }
+      if(skipNextSeasonalRender){
+        skipNextSeasonalRender = false;
+        return; // nos propres données locales sont déjà à jour, on garde la grille telle quelle
       }
       renderSeasonalPlanning();
     }, (err)=>{
