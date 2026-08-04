@@ -42,6 +42,7 @@
   header{
     padding:14px 32px 10px;
     border-bottom:3px solid var(--navy);
+    background:var(--paper);
   }
   .eyebrow{
     font-family:var(--mono);
@@ -126,6 +127,7 @@
     left:0;
     right:0;
     z-index:80;
+    background:var(--paper);
   }
 
   .legend{
@@ -256,6 +258,11 @@
     display:flex; gap:6px; align-items:center;
     margin-bottom:12px;
     font-family:var(--mono); font-size:11px;
+    position:sticky;
+    z-index:70;
+    background:var(--paper);
+    padding:8px 4px;
+    border-bottom:1px solid var(--paper-line);
   }
   .format-toolbar button{
     border:1.5px solid var(--ink);
@@ -2465,6 +2472,8 @@ function checkAccessCode(){
     const bar = document.getElementById('stickyBar');
     const spacer = document.getElementById('stickyBarSpacer');
     if(bar && spacer) spacer.style.height = bar.offsetHeight + 'px';
+    const fmtBar = document.getElementById('seasonalFormatToolbar');
+    if(bar && fmtBar) fmtBar.style.top = bar.offsetHeight + 'px';
   }
   window.addEventListener('resize', syncStickyBarSpacer);
 
