@@ -410,7 +410,7 @@
 
 
 <header>
-  <div class="eyebrow">Groupe Établières — Occupation des internats</div>
+  <div class="eyebrow">Groupe Établières — Occupation Bâtiment A et B</div>
   <h1>Gestion des logements</h1>
   <div class="subtitle">Vidage &amp; transfert — Bâtiments A / B</div>
 </header>
@@ -2217,15 +2217,21 @@ function checkAccessCode(){
   document.getElementById('saveRoom').onclick = async ()=>{
     if(!panelTarget) return;
     const room = data[panelTarget.bldg].floors[panelTarget.floorIdx].rooms[panelTarget.roomIdx];
+    const oldStatusLabel = (STATUSES[room.status]||{}).label || room.status;
+    const oldOccupant = room.occupant || '';
+    const newOccupant = occupantInput.value.trim();
     room.status = draftStatus;
-    room.occupant = occupantInput.value.trim();
-    logHistory(`Chambre ${room.number} (${data[panelTarget.bldg].label}) → ${STATUSES[room.status].label}${room.occupant?' — '+room.occupant:''}`);
+    room.occupant = newOccupant;
+    const newStatusLabel = STATUSES[room.status].label;
+    let msg = `Chambre ${room.number} (${data[panelTarget.bldg].label}) : ${oldStatusLabel} → ${newStatusLabel}`;
+    if(oldOccupant !== newOccupant){
+      msg += ` | note : "${oldOccupant||'—'}" → "${newOccupant||'—'}"`;
+    }
+    logHistory(msg);
     renderStats();
     renderFloors();
-    const confirmEl = document.getElementById('saveConfirm');
-    confirmEl.textContent = 'Enregistrement…';
+    closePanelFn();
     await persistState();
-    confirmEl.textContent = '✓ Validé et enregistré';
   };
 
   document.getElementById('deleteRoomBtn').onclick = async ()=>{
