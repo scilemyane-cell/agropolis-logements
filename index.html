@@ -121,8 +121,10 @@
   .dot.podeliha{background:var(--podeliha);}
 
   #stickyBar{
-    position:sticky;
+    position:fixed;
     top:0;
+    left:0;
+    right:0;
     z-index:80;
   }
 
@@ -540,6 +542,7 @@
 
 <div class="legend" id="legendBar"></div>
 </div>
+<div id="stickyBarSpacer"></div>
 
 <div id="seasonalPlanningSection" style="display:none; padding:22px 32px; border-bottom:3px solid var(--navy); background:#fbfaf5;">
   <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:14px;">
@@ -659,6 +662,7 @@ const accessCodeInput = document.getElementById('accessCodeInput');
 const accessError = document.getElementById('accessError');
 let currentService = localStorage.getItem('etablieres-access-service') || '';
 let applyServiceDefaultFilter = null; // rempli par l'IIFE principale plus bas
+let syncStickyBarSpacerRef = null;
 
 function grantAccess(){
   accessGate.style.display = 'none';
@@ -668,6 +672,7 @@ function grantAccess(){
     btn.style.display = 'inline-block';
     btn.textContent = currentService === 'Agropolis' ? '📋 Planning saisonnier (lecture seule)' : '📋 Planning saisonnier';
   }
+  setTimeout(()=>{ if(syncStickyBarSpacerRef) syncStickyBarSpacerRef(); }, 0);
 }
 
 function logout(){
@@ -2453,7 +2458,15 @@ function checkAccessCode(){
     renderLegend();
     renderStats();
     renderFloors();
+    syncStickyBarSpacer();
   }
+
+  function syncStickyBarSpacer(){
+    const bar = document.getElementById('stickyBar');
+    const spacer = document.getElementById('stickyBarSpacer');
+    if(bar && spacer) spacer.style.height = bar.offsetHeight + 'px';
+  }
+  window.addEventListener('resize', syncStickyBarSpacer);
 
   document.getElementById('resetToPlanBtn').onclick = async ()=>{
     const ok = confirm("Recharger les statuts à partir de ma lecture des plans transmis ? Cela remplacera les statuts et occupants actuels de TOUTES les chambres (les catégories personnalisées sont conservées).");
@@ -2738,6 +2751,9 @@ function checkAccessCode(){
   if(localStorage.getItem('etablieres-access-ok') === '1'){
     applyServiceDefaultFilter(); // ouverture directe déjà connecté (code mémorisé sur l'appareil)
   }
+
+  syncStickyBarSpacerRef = syncStickyBarSpacer;
+  setTimeout(syncStickyBarSpacer, 0);
 })();
 </script>
 
