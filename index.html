@@ -191,44 +191,51 @@
     background:var(--navy);
     padding:8px 12px;
   }
-  .week-grid{
+  .week-days{
     display:grid;
-    grid-template-columns:80px repeat(5, 1fr);
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:10px;
+    padding:12px;
   }
-  .week-grid .cell{
-    border-right:1px solid var(--paper-line);
-    border-bottom:1px solid var(--paper-line);
-    padding:7px;
+  .day-card{
+    border:1.5px solid var(--paper-line);
+    border-radius:3px;
+    overflow:hidden;
+    background:#fffdf8;
   }
-  .week-grid .cell:nth-child(6n){border-right:none;}
-  .week-grid .day-head{
+  .day-card-head{
     font-family:var(--mono);
-    font-size:10.5px;
+    font-size:11px;
     font-weight:700;
     letter-spacing:.04em;
     text-transform:uppercase;
     color:var(--navy);
     text-align:center;
     background:#eef1e7;
+    padding:7px 6px;
+    border-bottom:1px solid var(--paper-line);
   }
-  .week-grid .day-head.out-of-range{
+  .day-card-head.out-of-range{
     color:#b7bfc7;
     background:#f4f3ee;
   }
-  .week-grid .slot-head{
+  .slot-block{
+    padding:8px;
+    border-top:1px dashed var(--paper-line);
+  }
+  .slot-block:first-of-type{border-top:none;}
+  .slot-tag{
     font-family:var(--mono);
-    font-size:10.5px;
+    font-size:9.5px;
     font-weight:700;
-    color:#5c6b7a;
-    display:flex; align-items:center;
-    background:#f4f1e8;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--transfert);
+    margin-bottom:5px;
   }
-  .week-grid .cell.out-of-range{
-    background:repeating-linear-gradient(135deg, #f4f3ee, #f4f3ee 6px, #ececE4 6px, #ececE4 12px);
-  }
-  .week-grid .cell-edit{
+  .cell-edit{
     width:100%;
-    min-height:46px;
+    min-height:44px;
     border:1px solid #d8d2c0;
     border-radius:2px;
     font-family:var(--mono);
@@ -242,17 +249,18 @@
     white-space:pre-wrap;
     word-break:break-word;
   }
-  .week-grid .cell-edit:focus{
+  .cell-edit:focus{
     border-color:var(--transfert);
     box-shadow:0 0 0 2px rgba(59,125,216,.15);
   }
-  .week-grid .cell-edit.is-repos{
+  .cell-edit.is-repos{
     background:#e4e6e9;
     color:#6b7480;
   }
-  .week-grid .cell-edit[contenteditable="false"]{
+  .cell-edit[contenteditable="false"]{
     background:#f4f3ee;
     cursor:default;
+    pointer-events:none;
   }
   .format-toolbar{
     display:flex; gap:6px; align-items:center;
@@ -528,8 +536,10 @@
     main{ padding:14px 14px 40px; }
     .room-grid{ grid-template-columns:repeat(auto-fill, minmax(62px,1fr)); }
 
-    .week-card{ overflow-x:auto; }
-    .week-grid{ grid-template-columns:60px repeat(5, minmax(90px,1fr)); }
+    .week-days{ grid-template-columns:1fr; padding:8px; gap:8px; }
+    .day-card-head{ font-size:10px; }
+    .slot-tag{ font-size:9px; }
+    .cell-edit{ font-size:12px; }
     .days-row{ overflow-x:auto; }
   }
 </style>
@@ -2591,26 +2601,33 @@ function checkAccessCode(){
     document.getElementById('seasonalFormatToolbar').style.display = isReadOnly ? 'none' : 'flex';
 
     container.innerHTML = weeks.map((week, wIdx)=>{
-      const dayHeads = week.days.map(day=>
-        `<div class="cell day-head${day.inRange?'':' out-of-range'}">${formatDayLabel(day.date)}</div>`
-      ).join('');
-      const buildRow = (slot)=> week.days.map(day=>{
-        if(!day.inRange) return `<div class="cell out-of-range"></div>`;
+      const dayCards = week.days.map(day=>{
+        if(!day.inRange){
+          return `<div class="day-card"><div class="day-card-head out-of-range">${formatDayLabel(day.date)}</div></div>`;
+        }
         const iso = isoDate(day.date);
-        const v = (seasonalEntries[iso]||{})[slot] || '';
-        const reposClass = isRepos(v.replace(/<[^>]*>/g,'')) ? ' is-repos' : '';
-        return `<div class="cell"><div class="cell-edit${reposClass}" data-date="${iso}" data-slot="${slot}" contenteditable="${isReadOnly?'false':'true'}">${v}</div></div>`;
+        const matin = (seasonalEntries[iso]||{}).matin || '';
+        const soir = (seasonalEntries[iso]||{}).soir || '';
+        const matinRepos = isRepos(matin.replace(/<[^>]*>/g,'')) ? ' is-repos' : '';
+        const soirRepos = isRepos(soir.replace(/<[^>]*>/g,'')) ? ' is-repos' : '';
+        return `<div class="day-card">
+          <div class="day-card-head">${formatDayLabel(day.date)}</div>
+          <div class="slot-block">
+            <div class="slot-tag">☀ Matin</div>
+            <div class="cell-edit${matinRepos}" data-date="${iso}" data-slot="matin" contenteditable="${isReadOnly?'false':'true'}">${matin}</div>
+          </div>
+          <div class="slot-block">
+            <div class="slot-tag">🌤 Après-midi</div>
+            <div class="cell-edit${soirRepos}" data-date="${iso}" data-slot="soir" contenteditable="${isReadOnly?'false':'true'}">${soir}</div>
+          </div>
+        </div>`;
       }).join('');
       return `<div class="week-card">
-        <div class="week-label" style="display:flex; align-items:center; justify-content:space-between;">
+        <div class="week-label" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
           <span>${formatWeekLabel(week)}</span>
           <button class="week-print-btn" data-week-idx="${wIdx}" style="font-family:var(--mono); font-size:10.5px; background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.4); padding:4px 9px; cursor:pointer; border-radius:2px;">🖨️ Extraire cette semaine</button>
         </div>
-        <div class="week-grid">
-          <div class="cell slot-head"></div>${dayHeads}
-          <div class="cell slot-head">Matin</div>${buildRow('matin')}
-          <div class="cell slot-head">Après-midi</div>${buildRow('soir')}
-        </div>
+        <div class="week-days">${dayCards}</div>
       </div>`;
     }).join('');
 
