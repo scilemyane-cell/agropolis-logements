@@ -723,6 +723,10 @@ const appRoot = document.getElementById('appRoot');
 const accessCodeInput = document.getElementById('accessCodeInput');
 const accessError = document.getElementById('accessError');
 let currentService = localStorage.getItem('etablieres-access-service') || '';
+if(currentService === 'Service Généraux'){
+  currentService = 'Services Généraux'; // migration ancien libellé
+  localStorage.setItem('etablieres-access-service', currentService);
+}
 let applyServiceDefaultFilter = null; // rempli par l'IIFE principale plus bas
 let syncStickyBarSpacerRef = null;
 
