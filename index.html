@@ -386,6 +386,13 @@
     overflow:hidden;
     text-overflow:ellipsis;
   }
+  .room .intervention-date{
+    font-family:var(--mono);
+    font-size:9px;
+    color:var(--transfert);
+    font-weight:700;
+    margin-top:2px;
+  }
   .room.hidden{display:none;}
 
   /* Panel */
@@ -431,13 +438,14 @@
     margin-bottom:4px;
     margin-top:14px;
   }
-  .panel input[type=text]{
+  .panel input[type=text], .panel input[type=date]{
     width:100%;
     padding:8px;
     font-family:var(--mono);
     font-size:13px;
     border:1.5px solid var(--ink);
     background:#fff;
+    box-sizing:border-box;
   }
   .status-btns{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px;}
   .status-btn{
@@ -588,6 +596,7 @@
   <span id="saveStatus" style="font-family:var(--mono); font-size:11px; color:#7f93a8; margin-left:10px;"></span>
   <button class="legend-add-btn" id="logoutBtn" style="border-color:#c4402f; color:#e8b0a6;">⎋ Se déconnecter</button>
   <button class="legend-add-btn" id="seasonalToggleBtn" style="display:none; border-color:#3b7dd8; color:#9db9e0;">📋 Planning saisonnier</button>
+  <span id="connectedServiceLabel" style="font-family:var(--mono); font-size:11px; color:#c7d3e0; margin-left:10px;"></span>
 </div>
 
 <div class="legend" id="legendBar"></div>
@@ -664,6 +673,9 @@
     <label>Occupant / note</label>
     <input type="text" id="occupantInput" placeholder="Nom, référence…">
 
+    <label>Date d'intervention</label>
+    <input type="date" id="interventionDateInput">
+
     <div class="panel-actions">
       <button class="btn ghost" id="closePanel">Fermer</button>
       <button class="btn" id="startTransferBtn">Transférer vers…</button>
@@ -717,6 +729,7 @@ let syncStickyBarSpacerRef = null;
 function grantAccess(){
   accessGate.style.display = 'none';
   appRoot.style.display = 'block';
+  document.getElementById('connectedServiceLabel').textContent = currentService ? `👤 ${currentService}` : '';
   if(currentService === 'Services Généraux' || currentService === 'Maintenance' || currentService === 'Agropolis'){
     const btn = document.getElementById('seasonalToggleBtn');
     btn.style.display = 'inline-block';
@@ -733,6 +746,7 @@ function logout(){
   accessError.textContent = '';
   document.getElementById('seasonalToggleBtn').style.display = 'none';
   document.getElementById('seasonalPlanningSection').style.display = 'none';
+  document.getElementById('connectedServiceLabel').textContent = '';
   appRoot.style.display = 'none';
   accessGate.style.display = 'flex';
   accessCodeInput.focus();
@@ -1939,6 +1953,7 @@ function checkAccessCode(){
   const panelSub = document.getElementById('panelSub');
   const statusBtns = document.getElementById('statusBtns');
   const occupantInput = document.getElementById('occupantInput');
+  const interventionDateInput = document.getElementById('interventionDateInput');
   const historyList = document.getElementById('historyList');
   const transferBanner = document.getElementById('transferBanner');
   const transferMsg = document.getElementById('transferMsg');
@@ -2352,10 +2367,14 @@ function checkAccessCode(){
         if(transferSource && transferSource.bldg===currentBldg && transferSource.floorIdx===fIdx && transferSource.roomIdx===rIdx){
           el.classList.add('selected-transfer');
         }
+        const dateBadge = room.interventionDate
+          ? `<div class="intervention-date">📅 ${room.interventionDate.split('-').reverse().join('/')}</div>`
+          : '';
         el.innerHTML = `
           <div class="num">${room.number}</div>
           <div class="badge" style="background:${(STATUSES[room.status]||{}).color||'#8a97a6'}"></div>
           <div class="occupant">${room.occupant || '&nbsp;'}</div>
+          ${dateBadge}
         `;
         el.onclick = ()=> handleRoomClick(fIdx, rIdx);
         grid.appendChild(el);
@@ -2394,6 +2413,7 @@ function checkAccessCode(){
     panelTitle.textContent = `Chambre ${room.number}`;
     panelSub.textContent = `${data[currentBldg].label} — ${data[currentBldg].floors[floorIdx].name}`;
     occupantInput.value = room.occupant || '';
+    interventionDateInput.value = room.interventionDate || '';
 
     statusBtns.innerHTML='';
     Object.keys(STATUSES).forEach(key=>{
@@ -2424,13 +2444,19 @@ function checkAccessCode(){
     const room = data[panelTarget.bldg].floors[panelTarget.floorIdx].rooms[panelTarget.roomIdx];
     const oldStatusLabel = (STATUSES[room.status]||{}).label || room.status;
     const oldOccupant = room.occupant || '';
+    const oldDate = room.interventionDate || '';
     const newOccupant = occupantInput.value.trim();
+    const newDate = interventionDateInput.value || '';
     room.status = draftStatus;
     room.occupant = newOccupant;
+    room.interventionDate = newDate;
     const newStatusLabel = STATUSES[room.status].label;
     let msg = `Chambre ${room.number} (${data[panelTarget.bldg].label}) : ${oldStatusLabel} → ${newStatusLabel}`;
     if(oldOccupant !== newOccupant){
       msg += ` | note : "${oldOccupant||'—'}" → "${newOccupant||'—'}"`;
+    }
+    if(oldDate !== newDate){
+      msg += ` | intervention : ${oldDate||'—'} → ${newDate||'—'}`;
     }
     logHistory(msg);
     renderStats();
