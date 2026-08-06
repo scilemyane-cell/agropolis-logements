@@ -595,6 +595,7 @@
   <input type="file" id="importFileInput" accept="application/json" style="display:none;">
   <span id="saveStatus" style="font-family:var(--mono); font-size:11px; color:#7f93a8; margin-left:10px;"></span>
   <button class="legend-add-btn" id="logoutBtn" style="border-color:#c4402f; color:#e8b0a6;">⎋ Se déconnecter</button>
+  <button class="legend-add-btn" id="printOccupancyBtn" style="border-color:#7f93a8; color:#c7d3e0;">🖨️ Imprimer</button>
   <button class="legend-add-btn" id="seasonalToggleBtn" style="display:none; border-color:#3b7dd8; color:#9db9e0;">📋 Planning saisonnier</button>
   <span id="connectedServiceLabel" style="font-family:var(--mono); font-size:11px; color:#c7d3e0; margin-left:10px;"></span>
 </div>
@@ -2562,6 +2563,90 @@ function checkAccessCode(){
   };
 
   document.getElementById('exportBtn').onclick = exportState;
+  document.getElementById('printOccupancyBtn').onclick = printOccupancy;
+
+  function printOccupancy(){
+    const b = data[currentBldg];
+    const term = searchTerm;
+    const floorsHtml = b.floors.map(floor=>{
+      const rooms = floor.rooms.filter(r=>{
+        const matchesSearch = !term || r.number.toLowerCase().includes(term);
+        const matchesFilter = !activeFilters || activeFilters.has(r.status);
+        return matchesSearch && matchesFilter;
+      });
+      if(rooms.length===0) return '';
+      const cells = rooms.map(r=>{
+        const s = STATUSES[r.status] || {label:r.status, color:'#8a97a6'};
+        return `<div class="p-room">
+          <div class="p-num">${r.number}</div>
+          <div class="p-badge" style="background:${s.color}"></div>
+          <div class="p-status">${s.label}</div>
+          ${r.occupant?`<div class="p-occ">${r.occupant}</div>`:''}
+        </div>`;
+      }).join('');
+      return `<div class="p-floor">
+        <div class="p-floor-title">${floor.name} <span>— ${rooms.length} chambre${rooms.length>1?'s':''}</span></div>
+        <div class="p-grid">${cells}</div>
+      </div>`;
+    }).join('');
+
+    const legendHtml = Object.keys(STATUSES).map(k=>
+      `<span class="p-legend-item"><span class="p-dot" style="background:${STATUSES[k].color}"></span>${STATUSES[k].label}</span>`
+    ).join('');
+
+    const filterNote = activeFilters
+      ? `Filtre actif : ${Array.from(activeFilters).map(k=>(STATUSES[k]||{}).label||k).join(', ')}`
+      : 'Toutes les catégories affichées';
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Occupation — ${b.label}</title>
+<style>
+  @page{ size: landscape; margin: 12mm; }
+  *{box-sizing:border-box;}
+  body{font-family:Arial, Helvetica, sans-serif; color:#16273b; margin:0; padding:20px 26px;}
+  .top-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    background:#16273b; color:#fff;
+    padding:14px 22px; border-radius:4px; margin-bottom:16px;
+  }
+  .top-bar .eyebrow{font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8fb4e6; font-weight:bold; margin-bottom:3px;}
+  .top-bar h1{font-size:20px; margin:0;}
+  .top-bar .meta{font-size:11.5px; text-align:right; opacity:.9; line-height:1.5;}
+  .p-legend{display:flex; flex-wrap:wrap; gap:12px; font-size:10.5px; color:#5c6b7a; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #d8d2c0;}
+  .p-legend-item{display:flex; align-items:center; gap:4px;}
+  .p-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .p-floor{margin-bottom:18px; break-inside:avoid;}
+  .p-floor-title{font-size:12.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.04em; border-bottom:1.5px solid #16273b; padding-bottom:4px; margin-bottom:8px;}
+  .p-floor-title span{font-weight:normal; color:#8a97a6; text-transform:none;}
+  .p-grid{display:grid; grid-template-columns:repeat(10, 1fr); gap:6px;}
+  .p-room{border:1px solid #d8d2c0; border-radius:3px; padding:6px 4px; text-align:center;}
+  .p-num{font-weight:bold; font-size:12px;}
+  .p-badge{width:10px; height:10px; border-radius:50%; margin:3px auto;}
+  .p-status{font-size:8.5px; color:#5c6b7a; text-transform:uppercase; letter-spacing:.02em;}
+  .p-occ{font-size:8px; color:#8a97a6; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .footer{margin-top:16px; font-size:10px; color:#a3adb8; text-align:right;}
+  @media print{ .top-bar{-webkit-print-color-adjust:exact; print-color-adjust:exact;} }
+</style></head>
+<body>
+  <div class="top-bar">
+    <div>
+      <div class="eyebrow">Groupe Établières — ${currentService||''}</div>
+      <h1>Occupation — ${b.label}</h1>
+    </div>
+    <div class="meta">${filterNote}<br>${new Date().toLocaleDateString('fr-FR')}</div>
+  </div>
+  <div class="p-legend">${legendHtml}</div>
+  ${floorsHtml}
+  <div class="footer">Document généré depuis l'outil de gestion des logements</div>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>win.print(), 300);
+  }
+
+
   document.getElementById('logoutBtn').onclick = ()=>{
     if(confirm('Se déconnecter de l’outil ?')) logout();
   };
